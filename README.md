@@ -2,6 +2,7 @@
 
 This is a simple blog engine built with Go and Jet.
 
+![Logo](./icon.avif)
 
 
 ## Getting started
