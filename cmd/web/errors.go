@@ -4,8 +4,6 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime/debug"
-
-	"vellum.forge/internal/response"
 )
 
 func (app *application) reportServerError(r *http.Request, err error) {
@@ -25,7 +23,7 @@ func (app *application) serverError(w http.ResponseWriter, r *http.Request, err 
 
 	data := app.newTemplateData(r)
 
-	err = response.Page(w, http.StatusInternalServerError, data, "pages/errors/500.tmpl")
+	err = app.jetRenderer.RenderPage(w, http.StatusInternalServerError, data, "pages/errors/500.jet")
 	if err != nil {
 		app.reportServerError(r, err)
 
@@ -37,7 +35,7 @@ func (app *application) serverError(w http.ResponseWriter, r *http.Request, err 
 func (app *application) notFound(w http.ResponseWriter, r *http.Request) {
 	data := app.newTemplateData(r)
 
-	err := response.Page(w, http.StatusNotFound, data, "pages/errors/404.tmpl")
+	err := app.jetRenderer.RenderPage(w, http.StatusNotFound, data, "pages/errors/404.jet")
 	if err != nil {
 		app.serverError(w, r, err)
 	}
@@ -47,7 +45,7 @@ func (app *application) badRequest(w http.ResponseWriter, r *http.Request, err e
 	data := app.newTemplateData(r)
 	data["ErrorMessage"] = err.Error()
 
-	err = response.Page(w, http.StatusBadRequest, data, "pages/errors/400.tmpl")
+	err = app.jetRenderer.RenderPage(w, http.StatusBadRequest, data, "pages/errors/400.jet")
 	if err != nil {
 		app.serverError(w, r, err)
 	}

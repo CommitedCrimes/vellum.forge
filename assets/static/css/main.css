@@ -66,6 +66,8 @@ h5,
 h6 {
     letter-spacing: -0.022em;
     line-height: 1.15;
+    margin-bottom: 1.5rem;
+    margin-top: 2em;
 }
 
 h1 {
@@ -125,4 +127,52 @@ pre {
 
 pre>code {
     overflow-x: scroll;
+}
+
+/* Specific overide for code line numer */
+pre>code>span>span:first-child:not(:only-child) {
+    padding-right: 0.5rem;
+    margin-right: 0.5rem;
+    border-right: 1px solid #E1E1E1;
+    user-select: none;
+}
+
+article p {
+    margin-bottom: 1rem;
+}
+
+/* Mermaid diagram styling */
+.mermaid {
+    text-align: center;
+    margin: 2rem 0;
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid #e9ecef;
+}
+
+.mermaid svg {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Ensure Mermaid diagrams are responsive */
+.mermaid .node rect,
+.mermaid .node circle,
+.mermaid .node ellipse,
+.mermaid .node polygon {
+    fill: #fff;
+    stroke: #333;
+    stroke-width: 2px;
+}
+
+.mermaid .edgePath .path {
+    stroke: #333;
+    stroke-width: 2px;
+}
+
+.mermaid .edgeLabel {
+    background-color: #fff;
+    border-radius: 4px;
+    padding: 2px 6px;
 }

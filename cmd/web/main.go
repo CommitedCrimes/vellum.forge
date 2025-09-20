@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"sync"
 
 	"vellum.forge/internal/content"
 	"vellum.forge/internal/env"
+	"vellum.forge/internal/response"
 	"vellum.forge/internal/version"
 
 	"github.com/lmittmann/tint"
@@ -43,6 +45,7 @@ type application struct {
 	logger        *slog.Logger
 	wg            sync.WaitGroup
 	contentLoader *content.Loader
+	jetRenderer   *response.JetRenderer
 }
 
 func run(logger *slog.Logger) error {
@@ -65,10 +68,18 @@ func run(logger *slog.Logger) error {
 		return nil
 	}
 
+	// Initialize Jet renderer
+	themeDir := filepath.Join(cfg.themeDir, cfg.theme)
+	jetRenderer, err := response.NewJetRenderer(themeDir)
+	if err != nil {
+		return fmt.Errorf("failed to initialize Jet renderer: %w", err)
+	}
+
 	app := &application{
 		config:        cfg,
 		logger:        logger,
 		contentLoader: content.NewLoader(),
+		jetRenderer:   jetRenderer,
 	}
 
 	return app.serveHTTP()

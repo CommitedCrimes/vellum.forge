@@ -1,0 +1,11 @@
+{{extends "../layout.jet"}}
+
+{{block title()}}Example page{{end}}
+
+{{block meta()}}
+<meta name="page" content="home">
+{{end}}
+
+{{block main()}}
+<p>This is an example page.</p>
+{{end}}

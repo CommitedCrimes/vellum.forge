@@ -21,6 +21,7 @@ func (app *application) routes() http.Handler {
 	mux.Use(middleware.Logger)
 	mux.Use(middleware.Recoverer)
 	mux.Use(middleware.Compress(5)) // gzip compression
+	mux.Use(middleware.StripSlashes)
 
 	// Static assets
 	fileServer := http.FileServer(http.FS(assets.EmbeddedFiles))

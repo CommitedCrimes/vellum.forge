@@ -11,8 +11,10 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/microcosm-cc/bluemonday"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
+	"vellum.forge/internal/version"
 )
 
 var printer = message.NewPrinter(language.English)
@@ -23,13 +25,16 @@ var TemplateFuncs = template.FuncMap{
 	"timeSince":      time.Since,
 	"timeUntil":      time.Until,
 	"formatTime":     formatTime,
+	"formatDate":     formatDate,
 	"approxDuration": approxDuration,
+	"humanizeTime":   humanizeTime,
 
 	"uppercase": strings.ToUpper,
 	"lowercase": strings.ToLower,
 	"pluralize": pluralize,
 	"slugify":   slugify,
 	"safeHTML":  safeHTML,
+	"truncate":  truncate,
 
 	"join": strings.Join,
 
@@ -42,6 +47,9 @@ var TemplateFuncs = template.FuncMap{
 
 	"urlSetParam": urlSetParam,
 	"urlDelParam": urlDelParam,
+
+	"sanitizeHTML": sanitizeHTML,
+	"version":      versionFunc,
 }
 
 func formatTime(format string, t time.Time) string {
@@ -173,6 +181,51 @@ func urlDelParam(u *url.URL, key string) *url.URL {
 
 	nu.RawQuery = values.Encode()
 	return &nu
+}
+
+// sanitizeHTML sanitizes HTML content using a restrictive policy
+func sanitizeHTML(html string) template.HTML {
+	// Create a restrictive policy for user-generated content
+	policy := bluemonday.StrictPolicy()
+
+	// Allow only basic formatting
+	policy.AllowElements("p", "br", "strong", "em", "u", "s")
+	policy.AllowElements("h1", "h2", "h3", "h4", "h5", "h6")
+	policy.AllowElements("ul", "ol", "li")
+	policy.AllowElements("blockquote", "pre", "code")
+
+	// Allow links but sanitize URLs
+	policy.AllowAttrs("href").OnElements("a")
+	policy.RequireParseableURLs(true)
+
+	// Allow basic attributes
+	policy.AllowAttrs("class").Globally()
+
+	return template.HTML(policy.Sanitize(html))
+}
+
+// formatDate formats a time with the given layout
+func formatDate(t time.Time, layout string) string {
+	return t.Format(layout)
+}
+
+// humanizeTime returns a human-readable relative time string
+func humanizeTime(t time.Time) string {
+	duration := time.Since(t)
+	return approxDuration(duration) + " ago"
+}
+
+// truncate truncates a string to the specified length
+func truncate(s string, length int) string {
+	if len(s) <= length {
+		return s
+	}
+	return s[:length] + "..."
+}
+
+// versionFunc returns the application version
+func versionFunc() string {
+	return version.Get()
 }
 
 func toInt64(i any) (int64, error) {

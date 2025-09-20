@@ -3,9 +3,11 @@ package content
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/alecthomas/chroma/v2/formatters/html"
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/yuin/goldmark"
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	"github.com/yuin/goldmark/extension"
@@ -18,7 +20,8 @@ import (
 
 // MarkdownParser handles parsing markdown with frontmatter and extensions
 type MarkdownParser struct {
-	md goldmark.Markdown
+	md        goldmark.Markdown
+	sanitizer *bluemonday.Policy
 }
 
 // NewMarkdownParser creates a new markdown parser with all configured extensions
@@ -28,8 +31,9 @@ func NewMarkdownParser() *MarkdownParser {
 			&frontmatter.Extender{},
 			extension.GFM, // Tables, strikethrough, task lists, autolink, emoji
 			highlighting.NewHighlighting(
-				highlighting.WithStyle("vim"),
+				highlighting.WithStyle("autumn"),
 				highlighting.WithFormatOptions(
+					html.WithClasses(false),
 					html.WithLineNumbers(true),
 				),
 			),
@@ -40,7 +44,34 @@ func NewMarkdownParser() *MarkdownParser {
 		),
 	)
 
-	return &MarkdownParser{md: md}
+	// Create a permissive but safe HTML sanitizer
+	sanitizer := bluemonday.NewPolicy()
+
+	// Allow common HTML elements for rich content
+	sanitizer.AllowElements("p", "br", "strong", "em", "u", "s", "del", "ins", "mark")
+	sanitizer.AllowElements("h1", "h2", "h3", "h4", "h5", "h6")
+	sanitizer.AllowElements("ul", "ol", "li", "dl", "dt", "dd")
+	sanitizer.AllowElements("blockquote", "pre", "code")
+	sanitizer.AllowElements("a", "img", "figure", "figcaption")
+	sanitizer.AllowElements("table", "thead", "tbody", "tfoot", "tr", "th", "td")
+	sanitizer.AllowElements("div", "span", "section", "article", "header", "footer", "main")
+
+	// Allow attributes
+	sanitizer.AllowAttrs("href", "title").OnElements("a")
+	sanitizer.AllowAttrs("src", "alt", "title", "width", "height").OnElements("img")
+	sanitizer.AllowAttrs("class", "id").Globally()
+	sanitizer.AllowAttrs("style").OnElements("pre", "code", "span") // For syntax highlighting
+
+	// Allow data attributes for Mermaid diagrams
+	sanitizer.AllowAttrs("class").Matching(regexp.MustCompile(`^mermaid$`)).OnElements("pre")
+
+	// Allow specific CSS properties for syntax highlighting
+	sanitizer.AllowStyles("color", "background-color", "font-weight", "font-style", "text-decoration").Globally()
+
+	return &MarkdownParser{
+		md:        md,
+		sanitizer: sanitizer,
+	}
 }
 
 // Parse parses markdown content with frontmatter
@@ -66,10 +97,13 @@ func (p *MarkdownParser) Parse(content []byte) (*Content, error) {
 	// Extract body content (everything after frontmatter)
 	body := p.extractBody(content)
 
+	// Sanitize the HTML output
+	sanitizedHTML := p.sanitizer.Sanitize(htmlBuf.String())
+
 	return &Content{
 		Frontmatter: frontmatterData,
 		Body:        body,
-		HTML:        htmlBuf.String(),
+		HTML:        sanitizedHTML,
 	}, nil
 }
 

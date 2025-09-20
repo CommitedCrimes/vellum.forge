@@ -1,0 +1,6 @@
+<footer>
+    &copy; {{formatDate(now(), "2006")}}
+    <br>
+    Version: {{Version}}
+</footer>
+

@@ -3,15 +3,13 @@ package main
 import (
 	"net/http"
 
-	"vellum.forge/internal/response"
-
 	"github.com/go-chi/chi/v5"
 )
 
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
 	data := app.newTemplateData(r)
 
-	err := response.Page(w, http.StatusOK, data, "pages/home.tmpl")
+	err := app.jetRenderer.RenderPage(w, http.StatusOK, data, "pages/home.jet")
 	if err != nil {
 		app.serverError(w, r, err)
 	}
@@ -29,7 +27,7 @@ func (app *application) blogIndex(w http.ResponseWriter, r *http.Request) {
 
 	data["BlogPosts"] = blogPosts
 
-	err = response.Page(w, http.StatusOK, data, "pages/blog/index.tmpl")
+	err = app.jetRenderer.RenderPage(w, http.StatusOK, data, "pages/blog/index.jet")
 	if err != nil {
 		app.serverError(w, r, err)
 	}
@@ -48,7 +46,7 @@ func (app *application) blogPost(w http.ResponseWriter, r *http.Request) {
 	data := app.newTemplateData(r)
 	data["Post"] = blogPost
 
-	err = response.Page(w, http.StatusOK, data, "pages/blog/post.tmpl")
+	err = app.jetRenderer.RenderPage(w, http.StatusOK, data, "pages/blog/post.jet")
 	if err != nil {
 		app.serverError(w, r, err)
 	}
@@ -67,7 +65,7 @@ func (app *application) page(w http.ResponseWriter, r *http.Request) {
 	data := app.newTemplateData(r)
 	data["Page"] = page
 
-	err = response.Page(w, http.StatusOK, data, "pages/page.tmpl")
+	err = app.jetRenderer.RenderPage(w, http.StatusOK, data, "pages/page.jet")
 	if err != nil {
 		app.serverError(w, r, err)
 	}

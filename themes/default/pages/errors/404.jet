@@ -1,0 +1,13 @@
+{{extends "../../layout.jet"}}
+
+{{block title()}}Page not found{{end}}
+
+{{block meta()}}
+<meta name="page" content="errors/404">
+{{end}}
+
+{{block main()}}
+<h1>Page not found</h1>
+<p>Sorry, the page you are looking for does not exist. It might have been moved or deleted.</p>
+<p><a href="/">Back to Home</a></p>
+{{end}}

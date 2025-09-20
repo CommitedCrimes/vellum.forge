@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang='en'>
+    <head>
+        <meta charset='utf-8'>
+        <title>{{block title()}}Default Title{{end}}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        {{block meta()}}{{end}}
+
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+
+        <link rel='stylesheet' href='/static/css/skeleton.css'>
+        <link rel='stylesheet' href='/static/css/main.css?version={{Version}}'>
+        
+        <!-- Mermaid for diagrams -->
+        <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+        
+        {{block head()}}{{end}}
+    </head>
+    <body>
+        <header>
+            {{block header()}}
+            <h1><a href="/">Example header</a></h1>
+            {{include "partials/nav.jet"}}
+            {{end}}
+        </header>
+        <main>
+            {{block main()}}{{end}}
+        </main>
+        {{include "partials/footer.jet"}}
+        
+        <!-- Initialize Mermaid -->
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                mermaid.initialize({
+                    startOnLoad: true,
+                    theme: 'default',
+                    themeVariables: {
+                        primaryColor: '#ff6b6b',
+                        primaryTextColor: '#333',
+                        primaryBorderColor: '#ff6b6b',
+                        lineColor: '#333',
+                        secondaryColor: '#f8f9fa',
+                        tertiaryColor: '#fff'
+                    }
+                });
+            });
+        </script>
+    </body>
+</html>
+

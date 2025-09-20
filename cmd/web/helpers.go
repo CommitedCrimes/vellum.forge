@@ -10,6 +10,15 @@ import (
 func (app *application) newTemplateData(r *http.Request) map[string]any {
 	data := map[string]any{
 		"Version": version.Get(),
+		"Site": map[string]any{
+			"BaseURL": app.config.baseURL,
+			"Theme":   app.config.theme,
+		},
+		"Request": map[string]any{
+			"URL":    r.URL.String(),
+			"Method": r.Method,
+			"Host":   r.Host,
+		},
 	}
 
 	return data

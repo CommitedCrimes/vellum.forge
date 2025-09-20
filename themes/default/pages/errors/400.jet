@@ -1,0 +1,12 @@
+{{extends "../../layout.jet"}}
+
+{{block title()}}Bad request{{end}}
+
+{{block meta()}}
+<meta name="page" content="errors/400">
+{{end}}
+
+{{block main()}}
+<h1>Bad request</h1>
+<p>{{ErrorMessage}}</p>
+{{end}}

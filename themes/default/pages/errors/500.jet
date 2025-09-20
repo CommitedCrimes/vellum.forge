@@ -1,0 +1,12 @@
+{{extends "../../layout.jet"}}
+
+{{block title()}}Server error{{end}}
+
+{{block meta()}}
+<meta name="page" content="errors/500">
+{{end}}
+
+{{block main()}}
+<h1>Server error</h1>
+<p>Sorry, we are having a problem with our system. The error has been recorded and we will try to resolve it as soon as possible.</p>
+{{end}}
