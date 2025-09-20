@@ -27,6 +27,9 @@ func (app *application) routes() http.Handler {
 	fileServer := http.FileServer(http.FS(assets.EmbeddedFiles))
 	mux.Handle("/static/*", fileServer)
 
+	// Theme assets
+	mux.Handle("/themes/*", http.HandlerFunc(app.themeAssets))
+
 	// Routes
 	mux.Get("/", app.home)
 	mux.Get("/blog", app.blogIndex)

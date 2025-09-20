@@ -1,0 +1,9 @@
+/* Example theme-specific CSS file */
+.theme-specific {
+    color: #333;
+    background-color: #f8f9fa;
+}
+
+.theme-header {
+    border-bottom: 2px solid #007bff;
+}
