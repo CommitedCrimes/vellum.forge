@@ -84,8 +84,6 @@ func (app *application) themeAssets(w http.ResponseWriter, r *http.Request) {
 	// Extract the requested path from the URL
 	requestedPath := chi.URLParam(r, "*")
 
-	app.logger.Info("requestedPath", requestedPath)
-
 	// Validate and clean the path to prevent directory traversal
 	cleanPath, err := app.validateAssetPath(requestedPath)
 	if err != nil {
@@ -136,8 +134,6 @@ func (app *application) themeAssets(w http.ResponseWriter, r *http.Request) {
 func (app *application) validateAssetPath(requestedPath string) (string, error) {
 	// Remove any leading slashes
 	cleanPath := strings.TrimPrefix(requestedPath, "/")
-
-	app.logger.Info("cleanPath", cleanPath)
 
 	// Reject empty paths
 	if cleanPath == "" {
