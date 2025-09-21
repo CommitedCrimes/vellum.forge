@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"sync"
+	"time"
 
+	"vellum.forge/internal/cache"
 	"vellum.forge/internal/content"
 	"vellum.forge/internal/env"
 	"vellum.forge/internal/response"
@@ -35,17 +37,24 @@ type config struct {
 	cookie   struct {
 		secretKey string
 	}
-	cacheTTL int
-	dataDir  string
-	themeDir string
+	cacheTTL        int
+	dataDir         string
+	themeDir        string
+	cacheEnabled    bool
+	cacheMaxSize    int64
+	cacheMaxEntries int
 }
 
 type application struct {
-	config        config
-	logger        *slog.Logger
-	wg            sync.WaitGroup
-	contentLoader *content.Loader
-	jetRenderer   *response.JetRenderer
+	config           config
+	logger           *slog.Logger
+	wg               sync.WaitGroup
+	contentLoader    *content.Loader
+	jetRenderer      *response.JetRenderer
+	cache            *cache.Cache
+	cacheKeyBuilder  *cache.CacheKeyBuilder
+	cacheInvalidator *cache.CacheInvalidator
+	fileWatcher      *cache.FileWatcher
 }
 
 func run(logger *slog.Logger) error {
@@ -58,6 +67,9 @@ func run(logger *slog.Logger) error {
 	cfg.dataDir = env.GetString("DATA_DIR", "data")
 	cfg.themeDir = env.GetString("THEME_DIR", "themes")
 	cfg.theme = env.GetString("THEME", "default")
+	cfg.cacheEnabled = env.GetBool("CACHE_ENABLED", true)
+	cfg.cacheMaxSize = int64(env.GetInt("CACHE_MAX_SIZE_MB", 100)) * 1024 * 1024 // Convert MB to bytes
+	cfg.cacheMaxEntries = env.GetInt("CACHE_MAX_ENTRIES", 1000)
 
 	showVersion := flag.Bool("version", false, "display version and exit")
 
@@ -80,6 +92,37 @@ func run(logger *slog.Logger) error {
 		logger:        logger,
 		contentLoader: content.NewLoader(),
 		jetRenderer:   jetRenderer,
+	}
+
+	// Initialize cache if enabled
+	if cfg.cacheEnabled {
+		cacheConfig := cache.Config{
+			MaxEntries:   cfg.cacheMaxEntries,
+			MaxSizeBytes: cfg.cacheMaxSize,
+			DefaultTTL:   time.Duration(cfg.cacheTTL) * time.Second,
+			CleanupFreq:  5 * time.Minute,
+		}
+
+		app.cache = cache.New(cacheConfig)
+		app.cacheKeyBuilder = cache.NewCacheKeyBuilder(cfg.theme, cfg.dataDir, cfg.themeDir)
+		app.cacheInvalidator = cache.NewCacheInvalidator(app.cache, logger)
+
+		// Initialize file watcher for auto-invalidation
+		app.fileWatcher = cache.NewFileWatcher(app.cache, logger)
+		err = app.fileWatcher.Watch(cfg.dataDir)
+		if err != nil {
+			logger.Warn("Failed to watch data directory for cache invalidation", "error", err)
+		}
+		err = app.fileWatcher.Watch(themeDir)
+		if err != nil {
+			logger.Warn("Failed to watch theme directory for cache invalidation", "error", err)
+		}
+		app.fileWatcher.Start()
+
+		logger.Info("Cache initialized",
+			"maxEntries", cfg.cacheMaxEntries,
+			"maxSizeMB", cfg.cacheMaxSize/(1024*1024),
+			"ttlSeconds", cfg.cacheTTL)
 	}
 
 	return app.serveHTTP()

@@ -7,32 +7,121 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+
+	"vellum.forge/internal/cache"
+	"vellum.forge/internal/version"
 )
 
-func (app *application) home(w http.ResponseWriter, r *http.Request) {
-	data := app.newTemplateData(r)
+// renderWithCache is a helper function that handles caching for template rendering
+func (app *application) renderWithCache(w http.ResponseWriter, r *http.Request, cacheKey string, renderFunc func() error) error {
+	// Skip caching if cache is disabled or request should bypass cache
+	if app.cache == nil || cache.ShouldBypass(r) {
+		return renderFunc()
+	}
 
-	err := app.jetRenderer.RenderPage(w, http.StatusOK, data, "pages/home.jet")
+	// Try to get from cache first
+	if entry, found := app.cache.Get(cacheKey); found {
+		// Check for conditional requests
+		if cache.HandleConditionalRequest(w, r, entry) {
+			return nil // 304 Not Modified was sent
+		}
+
+		// Set caching headers
+		cache.SetCacheHeaders(w, entry, time.Duration(app.config.cacheTTL)*time.Second)
+
+		// Write cached response
+		return cache.WriteEntryToResponse(w, entry)
+	}
+
+	// Not in cache, capture response
+	responseCapture := cache.NewResponseCapture(w)
+	err := renderFunc()
+	if err != nil {
+		return err
+	}
+
+	// Get captured data
+	body, headers, statusCode := responseCapture.GetCapturedData()
+
+	// Only cache successful responses
+	if statusCode == http.StatusOK {
+		// Create cache entry
+		entry := cache.CreateCacheEntry(body, headers, statusCode, time.Duration(app.config.cacheTTL)*time.Second)
+
+		// Set caching headers
+		cache.SetCacheHeaders(responseCapture, entry, time.Duration(app.config.cacheTTL)*time.Second)
+
+		// Store in cache
+		app.cache.Set(cacheKey, entry)
+	}
+
+	// Write response to client
+	return responseCapture.Flush()
+}
+
+func (app *application) home(w http.ResponseWriter, r *http.Request) {
+	var cacheKey string
+	var err error
+
+	// Build cache key if caching is enabled
+	if app.cache != nil && !cache.ShouldBypass(r) {
+		cacheKey, err = app.cacheKeyBuilder.BuildKeyForHome(r)
+		if err != nil {
+			app.logger.Warn("Failed to build cache key for home page", "error", err)
+		}
+	}
+
+	renderFunc := func() error {
+		data := app.newTemplateData(r)
+		return app.jetRenderer.RenderPage(w, http.StatusOK, data, "pages/home.jet")
+	}
+
+	if cacheKey != "" {
+		err = app.renderWithCache(w, r, cacheKey, renderFunc)
+	} else {
+		err = renderFunc()
+	}
+
 	if err != nil {
 		app.serverError(w, r, err)
 	}
 }
 
 func (app *application) blogIndex(w http.ResponseWriter, r *http.Request) {
-	data := app.newTemplateData(r)
+	var cacheKey string
+	var err error
 
-	// Load blog posts from content directory (with app.config.dataDir as base directory)
-	blogPosts, err := app.contentLoader.LoadBlogPosts(app.config.dataDir)
-	if err != nil {
-		app.serverError(w, r, err)
-		return
+	// Build cache key if caching is enabled
+	if app.cache != nil && !cache.ShouldBypass(r) {
+		cacheKey, err = app.cacheKeyBuilder.BuildKeyForBlogIndex(r)
+		if err != nil {
+			app.logger.Warn("Failed to build cache key for blog index", "error", err)
+		}
 	}
 
-	data["BlogPosts"] = blogPosts
+	renderFunc := func() error {
+		data := app.newTemplateData(r)
 
-	err = app.jetRenderer.RenderPage(w, http.StatusOK, data, "pages/blog/index.jet")
+		// Load blog posts from content directory (with app.config.dataDir as base directory)
+		blogPosts, err := app.contentLoader.LoadBlogPosts(app.config.dataDir)
+		if err != nil {
+			return err
+		}
+
+		data["BlogPosts"] = blogPosts
+
+		return app.jetRenderer.RenderPage(w, http.StatusOK, data, "pages/blog/index.jet")
+	}
+
+	if cacheKey != "" {
+		err = app.renderWithCache(w, r, cacheKey, renderFunc)
+	} else {
+		err = renderFunc()
+	}
+
 	if err != nil {
 		app.serverError(w, r, err)
 	}
@@ -40,17 +129,36 @@ func (app *application) blogIndex(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) blogPost(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
+	var cacheKey string
+	var err error
 
-	blogPost, err := app.contentLoader.LoadBlogPost(app.config.dataDir, slug)
-	if err != nil {
-		app.notFound(w, r)
-		return
+	// Build cache key if caching is enabled
+	if app.cache != nil && !cache.ShouldBypass(r) {
+		cacheKey, err = app.cacheKeyBuilder.BuildKeyForBlogPost(r, slug)
+		if err != nil {
+			app.logger.Warn("Failed to build cache key for blog post", "slug", slug, "error", err)
+		}
 	}
 
-	data := app.newTemplateData(r)
-	data["Post"] = blogPost
+	renderFunc := func() error {
+		blogPost, err := app.contentLoader.LoadBlogPost(app.config.dataDir, slug)
+		if err != nil {
+			app.notFound(w, r)
+			return nil // Don't return error for 404, it's handled
+		}
 
-	err = app.jetRenderer.RenderPage(w, http.StatusOK, data, "pages/blog/post.jet")
+		data := app.newTemplateData(r)
+		data["Post"] = blogPost
+
+		return app.jetRenderer.RenderPage(w, http.StatusOK, data, "pages/blog/post.jet")
+	}
+
+	if cacheKey != "" {
+		err = app.renderWithCache(w, r, cacheKey, renderFunc)
+	} else {
+		err = renderFunc()
+	}
+
 	if err != nil {
 		app.serverError(w, r, err)
 	}
@@ -58,17 +166,36 @@ func (app *application) blogPost(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) page(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
+	var cacheKey string
+	var err error
 
-	page, err := app.contentLoader.LoadPage(app.config.dataDir, slug)
-	if err != nil {
-		app.notFound(w, r)
-		return
+	// Build cache key if caching is enabled
+	if app.cache != nil && !cache.ShouldBypass(r) {
+		cacheKey, err = app.cacheKeyBuilder.BuildKeyForPage(r, slug)
+		if err != nil {
+			app.logger.Warn("Failed to build cache key for page", "slug", slug, "error", err)
+		}
 	}
 
-	data := app.newTemplateData(r)
-	data["Page"] = page
+	renderFunc := func() error {
+		page, err := app.contentLoader.LoadPage(app.config.dataDir, slug)
+		if err != nil {
+			app.notFound(w, r)
+			return nil // Don't return error for 404, it's handled
+		}
 
-	err = app.jetRenderer.RenderPage(w, http.StatusOK, data, "pages/page.jet")
+		data := app.newTemplateData(r)
+		data["Page"] = page
+
+		return app.jetRenderer.RenderPage(w, http.StatusOK, data, "pages/page.jet")
+	}
+
+	if cacheKey != "" {
+		err = app.renderWithCache(w, r, cacheKey, renderFunc)
+	} else {
+		err = renderFunc()
+	}
+
 	if err != nil {
 		app.serverError(w, r, err)
 	}
@@ -77,7 +204,69 @@ func (app *application) page(w http.ResponseWriter, r *http.Request) {
 func (app *application) health(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"ok"}`))
+	write, err := w.Write([]byte(fmt.Sprintf(`{"status":"ok","version":"%s"}`, version.Get())))
+	if err != nil {
+		app.logger.Error("Error writing health response", "error", err)
+		app.serverError(w, r, err)
+		return
+	}
+	app.logger.Info(fmt.Sprintf("Wrote %d bytes to health endpoint", write))
+}
+
+func (app *application) cacheStats(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if app.cache == nil {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"cache":"disabled"}`))
+		return
+	}
+
+	stats := app.cache.Stats()
+	response := fmt.Sprintf(`{
+		"enabled": true,
+		"entries": %d,
+		"sizeBytes": %d,
+		"sizeMB": %.2f,
+		"maxEntries": %d,
+		"maxSizeBytes": %d,
+		"maxSizeMB": %.2f,
+		"utilization": %.2f
+	}`,
+		stats.Entries,
+		stats.SizeBytes,
+		float64(stats.SizeBytes)/(1024*1024),
+		stats.MaxEntries,
+		stats.MaxSizeBytes,
+		float64(stats.MaxSizeBytes)/(1024*1024),
+		float64(stats.Entries)/float64(stats.MaxEntries)*100,
+	)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(response))
+}
+
+func (app *application) cacheClear(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if app.cache == nil {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"cache":"disabled"}`))
+		return
+	}
+
+	// Only allow POST requests for cache clearing
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.Write([]byte(`{"error":"method not allowed"}`))
+		return
+	}
+
+	app.cache.Clear()
+	app.logger.Info("Cache manually cleared via API")
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"success":true,"message":"cache cleared"}`))
 }
 
 func (app *application) themeAssets(w http.ResponseWriter, r *http.Request) {

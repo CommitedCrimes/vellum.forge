@@ -22,6 +22,7 @@ func (app *application) routes() http.Handler {
 	mux.Use(middleware.Recoverer)
 	mux.Use(middleware.Compress(5)) // gzip compression
 	mux.Use(middleware.StripSlashes)
+	mux.Use(app.cacheMiddleware)
 
 	// Static assets
 	fileServer := http.FileServer(http.FS(assets.EmbeddedFiles))
@@ -36,6 +37,8 @@ func (app *application) routes() http.Handler {
 	mux.Get("/blog/{slug}", app.blogPost)
 	mux.Get("/{slug}", app.page)
 	mux.Get("/health", app.health)
+	mux.Get("/cache/stats", app.cacheStats)
+	mux.Post("/cache/clear", app.cacheClear)
 
 	return mux
 }

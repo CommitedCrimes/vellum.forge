@@ -56,6 +56,14 @@ func (app *application) serveHTTP() error {
 
 	app.logger.Info("stopped server", slog.Group("server", "addr", srv.Addr))
 
+	// Clean up cache and file watcher
+	if app.fileWatcher != nil {
+		app.fileWatcher.Stop()
+	}
+	if app.cache != nil {
+		app.cache.Close()
+	}
+
 	app.wg.Wait()
 	return nil
 }

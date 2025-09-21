@@ -1,6 +1,7 @@
 package content
 
 import (
+	"strings"
 	"time"
 )
 
@@ -28,7 +29,8 @@ func (c *Content) GetSlug() string {
 		return c.Frontmatter.Slug
 	}
 	// TODO: Implement slug generation from title
-	return ""
+	customSlug := generateSlug(c.Frontmatter.Title)
+	return customSlug
 }
 
 // GetDate returns the date from frontmatter or current time as fallback
@@ -37,4 +39,17 @@ func (c *Content) GetDate() time.Time {
 		return c.Frontmatter.Date
 	}
 	return time.Now()
+}
+func generateSlug(title string) string {
+	slug := strings.ToLower(title)
+	slug = strings.ReplaceAll(slug, " ", "-")
+	slug = strings.Map(filterRune, slug)
+	return slug
+}
+
+func filterRune(r rune) rune {
+	if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+		return r
+	}
+	return -1
 }
