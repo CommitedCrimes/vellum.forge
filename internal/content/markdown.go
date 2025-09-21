@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/alecthomas/chroma/v2/formatters/html"
+	chroma "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/yuin/goldmark"
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
@@ -33,8 +33,8 @@ func NewMarkdownParser() *MarkdownParser {
 			highlighting.NewHighlighting(
 				highlighting.WithStyle("autumn"),
 				highlighting.WithFormatOptions(
-					html.WithClasses(false),
-					html.WithLineNumbers(true),
+					chroma.WithClasses(true),
+					chroma.WithLineNumbers(true),
 				),
 			),
 			&mermaid.Extender{},
@@ -55,6 +55,7 @@ func NewMarkdownParser() *MarkdownParser {
 	sanitizer.AllowElements("a", "img", "figure", "figcaption")
 	sanitizer.AllowElements("table", "thead", "tbody", "tfoot", "tr", "th", "td")
 	sanitizer.AllowElements("div", "span", "section", "article", "header", "footer", "main")
+	sanitizer.AllowElements("style")
 
 	// Allow attributes
 	sanitizer.AllowAttrs("href", "title").OnElements("a")
