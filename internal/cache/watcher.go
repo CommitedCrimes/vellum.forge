@@ -27,7 +27,7 @@ func NewFileWatcher(cache *Cache, logger *slog.Logger) *FileWatcher {
 		logger:  logger,
 		paths:   make(map[string]bool),
 		stopCh:  make(chan struct{}),
-		pollInt: 2 * time.Second, // Poll every 2 seconds
+		pollInt: 10 * time.Second, // Poll every 10 seconds
 	}
 }
 
