@@ -5,4 +5,5 @@ build-errors.log
 .env.production
 .idea
 web
-vellumforge
+./vellumforge
+.DS_Store
