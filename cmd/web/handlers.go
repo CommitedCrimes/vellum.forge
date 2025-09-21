@@ -19,13 +19,20 @@ import (
 func (app *application) renderWithCache(w http.ResponseWriter, r *http.Request, cacheKey string, renderFunc func(http.ResponseWriter) error) error {
 	// Skip caching if cache is disabled or request should bypass cache
 	if app.cache == nil || cache.ShouldBypass(r) {
+		if cache.ShouldBypass(r) {
+			app.logger.Info("Cache bypass", "path", r.URL.Path, "reason", "bypass requested")
+		}
 		return renderFunc(w)
 	}
 
 	// Try to get from cache first
 	if entry, found := app.cache.Get(cacheKey); found {
+		// Log cache hit
+		app.logger.Info("Cache hit", "path", r.URL.Path, "size", len(entry.Body), "age", time.Since(entry.CreatedAt).Round(time.Millisecond))
+
 		// Check for conditional requests
 		if cache.HandleConditionalRequest(w, r, entry) {
+			app.logger.Info("Conditional request - 304 Not Modified", "path", r.URL.Path, "etag", entry.ETag)
 			return nil // 304 Not Modified was sent
 		}
 
@@ -37,6 +44,7 @@ func (app *application) renderWithCache(w http.ResponseWriter, r *http.Request, 
 	}
 
 	// Not in cache, capture response
+	app.logger.Info("Cache miss", "path", r.URL.Path)
 	responseCapture := cache.NewResponseCapture(w)
 	err := renderFunc(responseCapture)
 	if err != nil {
@@ -56,6 +64,7 @@ func (app *application) renderWithCache(w http.ResponseWriter, r *http.Request, 
 
 		// Store in cache
 		app.cache.Set(cacheKey, entry)
+		app.logger.Info("Cache store", "path", r.URL.Path, "size", len(body), "ttl", time.Duration(app.config.cacheTTL)*time.Second)
 	}
 
 	// Write response to client
@@ -233,7 +242,10 @@ func (app *application) cacheStats(w http.ResponseWriter, r *http.Request) {
 		"maxEntries": %d,
 		"maxSizeBytes": %d,
 		"maxSizeMB": %.2f,
-		"utilization": %.2f
+		"utilization": %.2f,
+		"hits": %d,
+		"misses": %d,
+		"hitRate": %.2f
 	}`,
 		stats.Entries,
 		stats.SizeBytes,
@@ -242,6 +254,9 @@ func (app *application) cacheStats(w http.ResponseWriter, r *http.Request) {
 		stats.MaxSizeBytes,
 		float64(stats.MaxSizeBytes)/(1024*1024),
 		float64(stats.Entries)/float64(stats.MaxEntries)*100,
+		stats.Hits,
+		stats.Misses,
+		stats.HitRate,
 	)
 
 	w.WriteHeader(http.StatusOK)

@@ -3,6 +3,7 @@ package cache
 import (
 	"crypto/sha256"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -91,22 +92,33 @@ func DefaultConfig() Config {
 
 // Cache represents an in-memory LRU+TTL cache
 type Cache struct {
-	config    Config
-	entries   map[string]*Entry
-	lruList   *lruList
-	totalSize int64
-	mu        sync.RWMutex
-	stopCh    chan struct{}
-	wg        sync.WaitGroup
+	config      Config
+	entries     map[string]*Entry
+	lruList     *lruList
+	totalSize   int64
+	hits        int64
+	misses      int64
+	logger      *slog.Logger
+	mu          sync.RWMutex
+	stopCh      chan struct{}
+	wg          sync.WaitGroup
+	lastLogTime time.Time
 }
 
 // New creates a new cache with the given configuration
 func New(config Config) *Cache {
+	return NewWithLogger(config, slog.Default())
+}
+
+// NewWithLogger creates a new cache with the given configuration and logger
+func NewWithLogger(config Config, logger *slog.Logger) *Cache {
 	c := &Cache{
-		config:  config,
-		entries: make(map[string]*Entry),
-		lruList: newLRUList(),
-		stopCh:  make(chan struct{}),
+		config:      config,
+		entries:     make(map[string]*Entry),
+		lruList:     newLRUList(),
+		logger:      logger,
+		stopCh:      make(chan struct{}),
+		lastLogTime: time.Now(),
 	}
 
 	// Start cleanup goroutine
@@ -159,18 +171,21 @@ func (c *Cache) Get(key string) (*Entry, bool) {
 
 	entry, exists := c.entries[key]
 	if !exists {
+		c.misses++
 		return nil, false
 	}
 
 	// Check if expired
 	if entry.IsExpired() {
 		c.removeEntry(key)
+		c.misses++
 		return nil, false
 	}
 
 	// Touch entry and move to front of LRU
 	entry.Touch()
 	c.lruList.moveToFront(key)
+	c.hits++
 
 	return entry, true
 }
@@ -274,12 +289,25 @@ func (c *Cache) InvalidateByFilePath(filePath string) int {
 func (c *Cache) Stats() CacheStats {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+	return c.statsUnlocked()
+}
+
+// statsUnlocked returns cache statistics without locking (must be called with lock held)
+func (c *Cache) statsUnlocked() CacheStats {
+	var hitRate float64
+	totalRequests := c.hits + c.misses
+	if totalRequests > 0 {
+		hitRate = float64(c.hits) / float64(totalRequests) * 100
+	}
 
 	return CacheStats{
 		Entries:      len(c.entries),
 		SizeBytes:    c.totalSize,
 		MaxEntries:   c.config.MaxEntries,
 		MaxSizeBytes: c.config.MaxSizeBytes,
+		Hits:         c.hits,
+		Misses:       c.misses,
+		HitRate:      hitRate,
 	}
 }
 
@@ -334,10 +362,28 @@ func (c *Cache) janitor() {
 	ticker := time.NewTicker(c.config.CleanupFreq)
 	defer ticker.Stop()
 
+	statsLogInterval := 10 * time.Minute // Log stats every 10 minutes
+
 	for {
 		select {
 		case <-ticker.C:
 			c.cleanup()
+
+			// Log periodic cache statistics
+			c.mu.RLock()
+			now := time.Now()
+			if now.Sub(c.lastLogTime) >= statsLogInterval {
+				stats := c.statsUnlocked()
+				c.logger.Info("Cache statistics",
+					"entries", stats.Entries,
+					"sizeMB", fmt.Sprintf("%.1f", float64(stats.SizeBytes)/(1024*1024)),
+					"hits", stats.Hits,
+					"misses", stats.Misses,
+					"hitRate", fmt.Sprintf("%.1f%%", stats.HitRate),
+					"utilization", fmt.Sprintf("%.1f%%", float64(stats.Entries)/float64(stats.MaxEntries)*100))
+				c.lastLogTime = now
+			}
+			c.mu.RUnlock()
 		case <-c.stopCh:
 			return
 		}
@@ -369,6 +415,9 @@ type CacheStats struct {
 	SizeBytes    int64
 	MaxEntries   int
 	MaxSizeBytes int64
+	Hits         int64
+	Misses       int64
+	HitRate      float64
 }
 
 // ShouldBypass checks if cache should be bypassed based on request

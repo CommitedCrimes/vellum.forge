@@ -103,7 +103,7 @@ func run(logger *slog.Logger) error {
 			CleanupFreq:  5 * time.Minute,
 		}
 
-		app.cache = cache.New(cacheConfig)
+		app.cache = cache.NewWithLogger(cacheConfig, logger)
 		app.cacheKeyBuilder = cache.NewCacheKeyBuilder(cfg.theme, cfg.dataDir, cfg.themeDir)
 		app.cacheInvalidator = cache.NewCacheInvalidator(app.cache, logger)
 
