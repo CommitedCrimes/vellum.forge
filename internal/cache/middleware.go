@@ -16,7 +16,6 @@ type ResponseCapture struct {
 	http.ResponseWriter
 	statusCode int
 	body       *bytes.Buffer
-	headers    http.Header
 	size       int
 }
 
@@ -25,7 +24,6 @@ func NewResponseCapture(w http.ResponseWriter) *ResponseCapture {
 	return &ResponseCapture{
 		ResponseWriter: w,
 		body:           new(bytes.Buffer),
-		headers:        make(http.Header),
 		statusCode:     http.StatusOK,
 	}
 }
@@ -44,34 +42,13 @@ func (rc *ResponseCapture) Write(data []byte) (int, error) {
 
 // Header returns the header map that will be sent
 func (rc *ResponseCapture) Header() http.Header {
-	// Return our captured headers, but fall back to underlying writer's headers
-	if len(rc.headers) > 0 {
-		return rc.headers
-	}
+	// Always return the underlying writer's headers so they get set properly
 	return rc.ResponseWriter.Header()
 }
 
 // Flush writes the captured response to the underlying ResponseWriter
 func (rc *ResponseCapture) Flush() error {
-	// Copy our captured headers to the underlying response writer
-	for k, values := range rc.headers {
-		for _, v := range values {
-			rc.ResponseWriter.Header().Add(k, v)
-		}
-	}
-
-	// Also copy any headers that were set directly on the underlying writer
-	underlyingHeaders := rc.ResponseWriter.Header()
-	for k, values := range underlyingHeaders {
-		// Only copy if we don't already have this header
-		if len(rc.headers[k]) == 0 {
-			for _, v := range values {
-				rc.headers[k] = append(rc.headers[k], v)
-			}
-		}
-	}
-
-	// Write status code
+	// Headers are already set on the underlying writer, just write status and body
 	rc.ResponseWriter.WriteHeader(rc.statusCode)
 
 	// Write body
@@ -81,18 +58,12 @@ func (rc *ResponseCapture) Flush() error {
 
 // GetCapturedData returns the captured response data
 func (rc *ResponseCapture) GetCapturedData() ([]byte, http.Header, int) {
-	// Ensure we have the latest headers from the underlying writer
+	// Get headers from the underlying writer (where they were actually set)
 	underlyingHeaders := rc.ResponseWriter.Header()
 	finalHeaders := make(http.Header)
 
-	// Copy underlying headers first
+	// Copy headers
 	for k, values := range underlyingHeaders {
-		finalHeaders[k] = make([]string, len(values))
-		copy(finalHeaders[k], values)
-	}
-
-	// Override with our captured headers
-	for k, values := range rc.headers {
 		finalHeaders[k] = make([]string, len(values))
 		copy(finalHeaders[k], values)
 	}

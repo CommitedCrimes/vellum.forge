@@ -37,6 +37,8 @@ func (app *application) routes() http.Handler {
 	mux.Get("/blog/{slug}", app.blogPost)
 	mux.Get("/{slug}", app.page)
 	mux.Get("/health", app.health)
+
+	// Cache stats and clear
 	mux.Get("/cache/stats", app.cacheStats)
 	mux.Post("/cache/clear", app.cacheClear)
 

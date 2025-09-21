@@ -16,10 +16,10 @@ import (
 )
 
 // renderWithCache is a helper function that handles caching for template rendering
-func (app *application) renderWithCache(w http.ResponseWriter, r *http.Request, cacheKey string, renderFunc func() error) error {
+func (app *application) renderWithCache(w http.ResponseWriter, r *http.Request, cacheKey string, renderFunc func(http.ResponseWriter) error) error {
 	// Skip caching if cache is disabled or request should bypass cache
 	if app.cache == nil || cache.ShouldBypass(r) {
-		return renderFunc()
+		return renderFunc(w)
 	}
 
 	// Try to get from cache first
@@ -38,7 +38,7 @@ func (app *application) renderWithCache(w http.ResponseWriter, r *http.Request, 
 
 	// Not in cache, capture response
 	responseCapture := cache.NewResponseCapture(w)
-	err := renderFunc()
+	err := renderFunc(responseCapture)
 	if err != nil {
 		return err
 	}
@@ -74,15 +74,15 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	renderFunc := func() error {
+	renderFunc := func(writer http.ResponseWriter) error {
 		data := app.newTemplateData(r)
-		return app.jetRenderer.RenderPage(w, http.StatusOK, data, "pages/home.jet")
+		return app.jetRenderer.RenderPage(writer, http.StatusOK, data, "pages/home.jet")
 	}
 
 	if cacheKey != "" {
 		err = app.renderWithCache(w, r, cacheKey, renderFunc)
 	} else {
-		err = renderFunc()
+		err = renderFunc(w)
 	}
 
 	if err != nil {
@@ -94,6 +94,8 @@ func (app *application) blogIndex(w http.ResponseWriter, r *http.Request) {
 	var cacheKey string
 	var err error
 
+	fmt.Println("blogIndex", app.cache != nil, cache.ShouldBypass(r))
+
 	// Build cache key if caching is enabled
 	if app.cache != nil && !cache.ShouldBypass(r) {
 		cacheKey, err = app.cacheKeyBuilder.BuildKeyForBlogIndex(r)
@@ -102,7 +104,7 @@ func (app *application) blogIndex(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	renderFunc := func() error {
+	renderFunc := func(writer http.ResponseWriter) error {
 		data := app.newTemplateData(r)
 
 		// Load blog posts from content directory (with app.config.dataDir as base directory)
@@ -113,13 +115,13 @@ func (app *application) blogIndex(w http.ResponseWriter, r *http.Request) {
 
 		data["BlogPosts"] = blogPosts
 
-		return app.jetRenderer.RenderPage(w, http.StatusOK, data, "pages/blog/index.jet")
+		return app.jetRenderer.RenderPage(writer, http.StatusOK, data, "pages/blog/index.jet")
 	}
 
 	if cacheKey != "" {
 		err = app.renderWithCache(w, r, cacheKey, renderFunc)
 	} else {
-		err = renderFunc()
+		err = renderFunc(w)
 	}
 
 	if err != nil {
@@ -129,10 +131,16 @@ func (app *application) blogIndex(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) blogPost(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
-	var cacheKey string
-	var err error
 
-	// Build cache key if caching is enabled
+	// First check if the blog post exists - don't cache 404s
+	blogPost, err := app.contentLoader.LoadBlogPost(app.config.dataDir, slug)
+	if err != nil {
+		app.notFound(w, r)
+		return
+	}
+
+	// Now that we know it exists, build cache key if caching is enabled
+	var cacheKey string
 	if app.cache != nil && !cache.ShouldBypass(r) {
 		cacheKey, err = app.cacheKeyBuilder.BuildKeyForBlogPost(r, slug)
 		if err != nil {
@@ -140,23 +148,17 @@ func (app *application) blogPost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	renderFunc := func() error {
-		blogPost, err := app.contentLoader.LoadBlogPost(app.config.dataDir, slug)
-		if err != nil {
-			app.notFound(w, r)
-			return nil // Don't return error for 404, it's handled
-		}
-
+	renderFunc := func(writer http.ResponseWriter) error {
 		data := app.newTemplateData(r)
 		data["Post"] = blogPost
 
-		return app.jetRenderer.RenderPage(w, http.StatusOK, data, "pages/blog/post.jet")
+		return app.jetRenderer.RenderPage(writer, http.StatusOK, data, "pages/blog/post.jet")
 	}
 
 	if cacheKey != "" {
 		err = app.renderWithCache(w, r, cacheKey, renderFunc)
 	} else {
-		err = renderFunc()
+		err = renderFunc(w)
 	}
 
 	if err != nil {
@@ -166,10 +168,16 @@ func (app *application) blogPost(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) page(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
-	var cacheKey string
-	var err error
 
-	// Build cache key if caching is enabled
+	// First check if the page exists - don't cache 404s
+	page, err := app.contentLoader.LoadPage(app.config.dataDir, slug)
+	if err != nil {
+		app.notFound(w, r)
+		return
+	}
+
+	// Now that we know it exists, build cache key if caching is enabled
+	var cacheKey string
 	if app.cache != nil && !cache.ShouldBypass(r) {
 		cacheKey, err = app.cacheKeyBuilder.BuildKeyForPage(r, slug)
 		if err != nil {
@@ -177,23 +185,17 @@ func (app *application) page(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	renderFunc := func() error {
-		page, err := app.contentLoader.LoadPage(app.config.dataDir, slug)
-		if err != nil {
-			app.notFound(w, r)
-			return nil // Don't return error for 404, it's handled
-		}
-
+	renderFunc := func(writer http.ResponseWriter) error {
 		data := app.newTemplateData(r)
 		data["Page"] = page
 
-		return app.jetRenderer.RenderPage(w, http.StatusOK, data, "pages/page.jet")
+		return app.jetRenderer.RenderPage(writer, http.StatusOK, data, "pages/page.jet")
 	}
 
 	if cacheKey != "" {
 		err = app.renderWithCache(w, r, cacheKey, renderFunc)
 	} else {
-		err = renderFunc()
+		err = renderFunc(w)
 	}
 
 	if err != nil {
