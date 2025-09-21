@@ -74,7 +74,7 @@ func (app *application) cacheControlMiddleware(next http.Handler) http.Handler {
 		// Set cache control based on content type and path
 		if strings.HasPrefix(path, "/static/") {
 			// Static assets - long cache with immutable
-			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable") // 1 year
+			w.Header().Set("Cache-Control", "public, max-age=15768000, immutable") // 0.5 years
 		} else if strings.HasPrefix(path, "/themes/") {
 			// Theme assets - medium cache
 			w.Header().Set("Cache-Control", "public, max-age=86400, must-revalidate") // 1 day
