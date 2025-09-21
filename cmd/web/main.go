@@ -50,6 +50,7 @@ type application struct {
 	logger           *slog.Logger
 	wg               sync.WaitGroup
 	contentLoader    *content.Loader
+	contentIndexer   *content.Indexer
 	jetRenderer      *response.JetRenderer
 	cache            *cache.Cache
 	cacheKeyBuilder  *cache.CacheKeyBuilder
@@ -124,6 +125,30 @@ func run(logger *slog.Logger) error {
 			"maxSizeMB", cfg.cacheMaxSize/(1024*1024),
 			"ttlSeconds", cfg.cacheTTL)
 	}
+
+	// Initialize content indexer (independent of cache) so new files are immediately routable
+	app.contentIndexer = content.NewIndexer(cfg.dataDir, logger, content.IndexerOptions{Debounce: 250 * time.Millisecond, RescanInterval: 20 * time.Second})
+	app.contentIndexer.SetOnChange(func(ch content.Changes) {
+		// Invalidate cache for affected paths to reflect updates and reindexing
+		if app.cacheInvalidator == nil {
+			return
+		}
+		for _, m := range ch.AddedOrUpdated {
+			_ = app.cacheInvalidator.InvalidateByFile(m.Path)
+			if m.IsBlog {
+				_ = app.cacheInvalidator.InvalidateBlogIndex()
+				_ = app.cacheInvalidator.InvalidateHome()
+			}
+		}
+		for _, m := range ch.Removed {
+			_ = app.cacheInvalidator.InvalidateByFile(m.Path)
+			if m.IsBlog {
+				_ = app.cacheInvalidator.InvalidateBlogIndex()
+				_ = app.cacheInvalidator.InvalidateHome()
+			}
+		}
+	})
+	app.contentIndexer.Start()
 
 	return app.serveHTTP()
 }

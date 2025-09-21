@@ -60,6 +60,9 @@ func (app *application) serveHTTP() error {
 	if app.fileWatcher != nil {
 		app.fileWatcher.Stop()
 	}
+	if app.contentIndexer != nil {
+		app.contentIndexer.Stop()
+	}
 	if app.cache != nil {
 		app.cache.Close()
 	}

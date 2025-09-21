@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"vellum.forge/internal/cache"
+	"vellum.forge/internal/content"
 	"vellum.forge/internal/version"
 )
 
@@ -115,14 +116,15 @@ func (app *application) blogIndex(w http.ResponseWriter, r *http.Request) {
 
 	renderFunc := func(writer http.ResponseWriter) error {
 		data := app.newTemplateData(r)
-
-		// Load blog posts from content directory (with app.config.dataDir as base directory)
-		blogPosts, metas, err := app.contentLoader.LoadBlogPosts(app.config.dataDir)
-		if err != nil {
-			return err
+		if app.contentIndexer != nil {
+			data["BlogPosts"] = app.contentIndexer.GetBlogList()
+		} else {
+			blogPosts, _, err := app.contentLoader.LoadBlogPosts(app.config.dataDir)
+			if err != nil {
+				return err
+			}
+			data["BlogPosts"] = blogPosts
 		}
-
-		data["BlogPosts"] = blogPosts
 		return app.jetRenderer.RenderPage(writer, http.StatusOK, data, "pages/blog/index.jet")
 	}
 
@@ -141,7 +143,17 @@ func (app *application) blogPost(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 
 	// First check if the blog post exists - don't cache 404s
-	blogPost, _, err := app.contentLoader.LoadBlogPost(app.config.dataDir, slug)
+	var blogPost *content.Content
+	var err error
+	if app.contentIndexer != nil {
+		if path, ok := app.contentIndexer.GetBlogPathBySlug(slug); ok {
+			blogPost, _, err = app.contentLoader.LoadContent(path)
+		} else {
+			err = fmt.Errorf("not found")
+		}
+	} else {
+		blogPost, _, err = app.contentLoader.LoadBlogPost(app.config.dataDir, slug)
+	}
 	if err != nil {
 		app.notFound(w, r)
 		return
@@ -178,7 +190,17 @@ func (app *application) page(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 
 	// First check if the page exists - don't cache 404s
-	page, _, err := app.contentLoader.LoadPage(app.config.dataDir, slug)
+	var page *content.Content
+	var err error
+	if app.contentIndexer != nil {
+		if path, ok := app.contentIndexer.GetPagePathBySlug(slug); ok {
+			page, _, err = app.contentLoader.LoadContent(path)
+		} else {
+			err = fmt.Errorf("not found")
+		}
+	} else {
+		page, _, err = app.contentLoader.LoadPage(app.config.dataDir, slug)
+	}
 	if err != nil {
 		app.notFound(w, r)
 		return
