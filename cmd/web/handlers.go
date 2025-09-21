@@ -117,13 +117,12 @@ func (app *application) blogIndex(w http.ResponseWriter, r *http.Request) {
 		data := app.newTemplateData(r)
 
 		// Load blog posts from content directory (with app.config.dataDir as base directory)
-		blogPosts, err := app.contentLoader.LoadBlogPosts(app.config.dataDir)
+		blogPosts, metas, err := app.contentLoader.LoadBlogPosts(app.config.dataDir)
 		if err != nil {
 			return err
 		}
 
 		data["BlogPosts"] = blogPosts
-
 		return app.jetRenderer.RenderPage(writer, http.StatusOK, data, "pages/blog/index.jet")
 	}
 
@@ -142,7 +141,7 @@ func (app *application) blogPost(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 
 	// First check if the blog post exists - don't cache 404s
-	blogPost, err := app.contentLoader.LoadBlogPost(app.config.dataDir, slug)
+	blogPost, _, err := app.contentLoader.LoadBlogPost(app.config.dataDir, slug)
 	if err != nil {
 		app.notFound(w, r)
 		return
@@ -179,7 +178,7 @@ func (app *application) page(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 
 	// First check if the page exists - don't cache 404s
-	page, err := app.contentLoader.LoadPage(app.config.dataDir, slug)
+	page, _, err := app.contentLoader.LoadPage(app.config.dataDir, slug)
 	if err != nil {
 		app.notFound(w, r)
 		return

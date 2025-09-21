@@ -22,15 +22,20 @@ func NewLoader() *Loader {
 }
 
 // LoadContent loads and parses a single content file
-func (l *Loader) LoadContent(filePath string) (*Content, error) {
+func (l *Loader) LoadContent(filePath string) (*Content, os.FileInfo, error) {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return nil, nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
+	}
+
+	fi, err := os.Stat(filePath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to stat file %s: %w", filePath, err)
 	}
 
 	parsed, err := l.parser.Parse(content)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse content from %s: %w", filePath, err)
+		return nil, nil, fmt.Errorf("failed to parse content from %s: %w", filePath, err)
 	}
 
 	// Generate slug from filename if not provided in frontmatter
@@ -40,12 +45,13 @@ func (l *Loader) LoadContent(filePath string) (*Content, error) {
 		parsed.Frontmatter.Slug = strings.TrimSuffix(base, ext)
 	}
 
-	return parsed, nil
+	return parsed, fi, nil
 }
 
 // LoadContentFromDir loads all content files from a directory
-func (l *Loader) LoadContentFromDir(dirPath string) ([]*Content, error) {
+func (l *Loader) LoadContentFromDir(dirPath string) ([]*Content, []os.FileInfo, error) {
 	var contents []*Content
+	var metas []os.FileInfo
 
 	err := filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -57,7 +63,8 @@ func (l *Loader) LoadContentFromDir(dirPath string) ([]*Content, error) {
 			return nil
 		}
 
-		content, err := l.LoadContent(path)
+		content, meta, err := l.LoadContent(path)
+		fmt.Printf("meta: %+v\n", meta)
 		if err != nil {
 			return fmt.Errorf("failed to load content from %s: %w", path, err)
 		}
@@ -68,11 +75,12 @@ func (l *Loader) LoadContentFromDir(dirPath string) ([]*Content, error) {
 		}
 
 		contents = append(contents, content)
+		metas = append(metas, meta)
 		return nil
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to walk directory %s: %w", dirPath, err)
+		return nil, nil, fmt.Errorf("failed to walk directory %s: %w", dirPath, err)
 	}
 
 	// Sort by date (newest first)
@@ -80,17 +88,17 @@ func (l *Loader) LoadContentFromDir(dirPath string) ([]*Content, error) {
 		return contents[i].GetDate().After(contents[j].GetDate())
 	})
 
-	return contents, nil
+	return contents, metas, nil
 }
 
 // LoadBlogPosts loads blog posts from the content directory
-func (l *Loader) LoadBlogPosts(contentDir string) ([]*Content, error) {
+func (l *Loader) LoadBlogPosts(contentDir string) ([]*Content, []os.FileInfo, error) {
 	blogDir := filepath.Join(contentDir, "blog")
 	return l.LoadContentFromDir(blogDir)
 }
 
 // LoadPage loads a single page by slug
-func (l *Loader) LoadPage(contentDir, slug string) (*Content, error) {
+func (l *Loader) LoadPage(contentDir, slug string) (*Content, os.FileInfo, error) {
 	pagesDir := filepath.Join(contentDir, "pages")
 
 	// Try to find the file by slug
@@ -118,18 +126,18 @@ func (l *Loader) LoadPage(contentDir, slug string) (*Content, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to search for page %s: %w", slug, err)
+		return nil, nil, fmt.Errorf("failed to search for page %s: %w", slug, err)
 	}
 
 	if foundPath == "" {
-		return nil, fmt.Errorf("page not found: %s", slug)
+		return nil, nil, fmt.Errorf("page not found: %s", slug)
 	}
 
 	return l.LoadContent(foundPath)
 }
 
 // LoadBlogPost loads a single blog post by slug
-func (l *Loader) LoadBlogPost(contentDir, slug string) (*Content, error) {
+func (l *Loader) LoadBlogPost(contentDir, slug string) (*Content, os.FileInfo, error) {
 	blogDir := filepath.Join(contentDir, "blog")
 
 	// Try to find the file by slug
@@ -157,11 +165,11 @@ func (l *Loader) LoadBlogPost(contentDir, slug string) (*Content, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to search for blog post %s: %w", slug, err)
+		return nil, nil, fmt.Errorf("failed to search for blog post %s: %w", slug, err)
 	}
 
 	if foundPath == "" {
-		return nil, fmt.Errorf("blog post not found: %s", slug)
+		return nil, nil, fmt.Errorf("blog post not found: %s", slug)
 	}
 
 	return l.LoadContent(foundPath)
