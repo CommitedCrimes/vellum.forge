@@ -120,11 +120,6 @@ article header {
     margin-bottom: 2rem;
 }
 
-pre {
-    background-color: transparent !important;
-    color:inherit !important;
-}
-
 pre>code {
     overflow-x: scroll;
 }
