@@ -16,6 +16,8 @@ func (app *application) routes() http.Handler {
 	mux.Use(app.logAccess)
 	mux.Use(app.recoverPanic)
 	mux.Use(app.securityHeaders)
+	mux.Use(app.cacheControlMiddleware)
+	mux.Use(app.contentTypeMiddleware)
 	mux.Use(middleware.RequestID)
 	mux.Use(middleware.RealIP)
 	mux.Use(middleware.Logger)
