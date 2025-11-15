@@ -38,6 +38,14 @@ type config struct {
 	cookie   struct {
 		secretKey string
 	}
+	site struct {
+		title          string
+		description    string
+		author         string
+		language       string
+		copyright      string
+		feedItemsCount int
+	}
 	cacheTTL        int
 	dataDir         string
 	themeDir        string
@@ -74,6 +82,14 @@ func run(logger *slog.Logger) error {
 	cfg.cacheEnabled = env.GetBool("CACHE_ENABLED", true)
 	cfg.cacheMaxSize = int64(env.GetInt("CACHE_MAX_SIZE_MB", 100)) * 1024 * 1024 // Convert MB to bytes
 	cfg.cacheMaxEntries = env.GetInt("CACHE_MAX_ENTRIES", 1000)
+
+	// Site configuration for RSS/Sitemap
+	cfg.site.title = env.GetString("SITE_TITLE", "VellumForge Blog")
+	cfg.site.description = env.GetString("SITE_DESCRIPTION", "A blog built with VellumForge")
+	cfg.site.author = env.GetString("SITE_AUTHOR", "VellumForge")
+	cfg.site.language = env.GetString("SITE_LANGUAGE", "en-us")
+	cfg.site.copyright = env.GetString("SITE_COPYRIGHT", "")
+	cfg.site.feedItemsCount = env.GetInt("FEED_ITEMS_COUNT", 20)
 
 	showVersion := flag.Bool("version", false, "display version and exit")
 

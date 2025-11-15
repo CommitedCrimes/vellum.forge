@@ -144,6 +144,18 @@ func (fw *FileWatcher) handleFileChange(filePath string) {
 		// Also invalidate home page if it shows recent blog posts
 		homeInvalidated := fw.cache.Invalidate("/")
 		invalidated += homeInvalidated
+
+		// Invalidate RSS feed and sitemap as they include blog posts
+		rssInvalidated := fw.cache.Invalidate("rss:")
+		invalidated += rssInvalidated
+		sitemapInvalidated := fw.cache.Invalidate("sitemap:")
+		invalidated += sitemapInvalidated
+	}
+
+	// If a page changed, invalidate sitemap
+	if strings.Contains(absPath, "pages") {
+		sitemapInvalidated := fw.cache.Invalidate("sitemap:")
+		invalidated += sitemapInvalidated
 	}
 
 	// If theme files changed, invalidate everything
@@ -204,6 +216,16 @@ func (ci *CacheInvalidator) InvalidateBlogIndex() int {
 // InvalidateHome invalidates the home page cache
 func (ci *CacheInvalidator) InvalidateHome() int {
 	return ci.InvalidateByPath("/")
+}
+
+// InvalidateFeed invalidates the RSS feed cache
+func (ci *CacheInvalidator) InvalidateFeed() int {
+	return ci.InvalidateByPath("rss:")
+}
+
+// InvalidateSitemap invalidates the sitemap cache
+func (ci *CacheInvalidator) InvalidateSitemap() int {
+	return ci.InvalidateByPath("sitemap:")
 }
 
 // InvalidateAll clears the entire cache

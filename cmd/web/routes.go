@@ -43,6 +43,12 @@ func (app *application) routes() http.Handler {
 	mux.Get("/{slug}", app.page)
 	mux.Get("/health", app.health)
 
+	// RSS and sitemap
+	mux.Get("/rss", app.rssFeed)
+	mux.Get("/feed", app.rssFeed)        // Alternative RSS URL
+	mux.Get("/sitemap.xml", app.sitemap)
+	mux.Get("/robots.txt", app.robotsTxt)
+
 	// Cache stats and clear
 	mux.Get("/cache/stats", app.cacheStats)
 	mux.Post("/cache/clear", app.cacheClear)

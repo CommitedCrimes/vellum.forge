@@ -12,6 +12,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"vellum.forge/internal/cache"
+	"vellum.forge/internal/feed"
+	"vellum.forge/internal/sitemap"
 	"vellum.forge/internal/version"
 )
 
@@ -117,7 +119,7 @@ func (app *application) blogIndex(w http.ResponseWriter, r *http.Request) {
 		data := app.newTemplateData(r)
 
 		// Load blog posts from content directory (with app.config.dataDir as base directory)
-		blogPosts, metas, err := app.contentLoader.LoadBlogPosts(app.config.dataDir)
+		blogPosts, _, err := app.contentLoader.LoadBlogPosts(app.config.dataDir)
 		if err != nil {
 			return err
 		}
@@ -382,6 +384,128 @@ func (app *application) attachmentImages(w http.ResponseWriter, r *http.Request)
 
 	// Serve the file
 	http.ServeFile(w, r, fullPath)
+}
+
+func (app *application) rssFeed(w http.ResponseWriter, r *http.Request) {
+	var cacheKey string
+	var err error
+
+	// Build cache key if caching is enabled
+	if app.cache != nil && !cache.ShouldBypass(r) {
+		cacheKey = "rss:main"
+	}
+
+	renderFunc := func(writer http.ResponseWriter) error {
+		// Load blog posts
+		posts, _, err := app.contentLoader.LoadBlogPosts(app.config.dataDir)
+		if err != nil {
+			return fmt.Errorf("failed to load blog posts for RSS: %w", err)
+		}
+
+		// Build feed configuration
+		feedConfig := feed.Config{
+			Title:       app.config.site.title,
+			Link:        app.config.baseURL,
+			Description: app.config.site.description,
+			Language:    app.config.site.language,
+			Copyright:   app.config.site.copyright,
+			Generator:   fmt.Sprintf("VellumForge %s", version.Get()),
+		}
+
+		// Generate RSS feed
+		feedURL := app.config.baseURL + "/rss"
+		rssData, err := feed.GenerateRSS(posts, feedConfig, feedURL, app.config.site.feedItemsCount)
+		if err != nil {
+			return fmt.Errorf("failed to generate RSS feed: %w", err)
+		}
+
+		// Set content type
+		writer.Header().Set("Content-Type", "application/rss+xml; charset=utf-8")
+		writer.WriteHeader(http.StatusOK)
+
+		// Write RSS feed
+		_, err = writer.Write(rssData)
+		return err
+	}
+
+	if cacheKey != "" {
+		err = app.renderWithCache(w, r, cacheKey, renderFunc)
+	} else {
+		err = renderFunc(w)
+	}
+
+	if err != nil {
+		app.serverError(w, r, err)
+	}
+}
+
+func (app *application) sitemap(w http.ResponseWriter, r *http.Request) {
+	var cacheKey string
+	var err error
+
+	// Build cache key if caching is enabled
+	if app.cache != nil && !cache.ShouldBypass(r) {
+		cacheKey = "sitemap:main"
+	}
+
+	renderFunc := func(writer http.ResponseWriter) error {
+		// Load blog posts
+		posts, _, err := app.contentLoader.LoadBlogPosts(app.config.dataDir)
+		if err != nil {
+			return fmt.Errorf("failed to load blog posts for sitemap: %w", err)
+		}
+
+		// Load pages
+		pages, _, err := app.contentLoader.LoadPages(app.config.dataDir)
+		if err != nil {
+			return fmt.Errorf("failed to load pages for sitemap: %w", err)
+		}
+
+		// Build sitemap entries
+		entries := sitemap.BuildSitemapFromContent(
+			app.config.baseURL,
+			posts,
+			time.Now(), // TODO: Get actual last modification time
+			pages,
+			time.Now(), // TODO: Get actual last modification time
+		)
+
+		// Generate sitemap XML
+		sitemapData, err := sitemap.GenerateSitemap(entries)
+		if err != nil {
+			return fmt.Errorf("failed to generate sitemap: %w", err)
+		}
+
+		// Set content type
+		writer.Header().Set("Content-Type", "application/xml; charset=utf-8")
+		writer.WriteHeader(http.StatusOK)
+
+		// Write sitemap
+		_, err = writer.Write(sitemapData)
+		return err
+	}
+
+	if cacheKey != "" {
+		err = app.renderWithCache(w, r, cacheKey, renderFunc)
+	} else {
+		err = renderFunc(w)
+	}
+
+	if err != nil {
+		app.serverError(w, r, err)
+	}
+}
+
+func (app *application) robotsTxt(w http.ResponseWriter, r *http.Request) {
+	robotsTxt := fmt.Sprintf(`User-agent: *
+Allow: /
+
+Sitemap: %s/sitemap.xml
+`, app.config.baseURL)
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(robotsTxt))
 }
 
 // validateAssetPath validates and cleans a requested asset path to prevent directory traversal

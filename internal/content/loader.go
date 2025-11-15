@@ -97,6 +97,12 @@ func (l *Loader) LoadBlogPosts(contentDir string) ([]*Content, []os.FileInfo, er
 	return l.LoadContentFromDir(blogDir)
 }
 
+// LoadPages loads all pages from the content directory
+func (l *Loader) LoadPages(contentDir string) ([]*Content, []os.FileInfo, error) {
+	pagesDir := filepath.Join(contentDir, "pages")
+	return l.LoadContentFromDir(pagesDir)
+}
+
 // LoadPage loads a single page by slug
 func (l *Loader) LoadPage(contentDir, slug string) (*Content, os.FileInfo, error) {
 	pagesDir := filepath.Join(contentDir, "pages")
