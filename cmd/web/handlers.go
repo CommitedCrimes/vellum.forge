@@ -335,6 +335,55 @@ func (app *application) themeAssets(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, fullPath)
 }
 
+func (app *application) attachmentImages(w http.ResponseWriter, r *http.Request) {
+	// Extract the requested path from the URL (everything after /images/)
+	requestedPath := chi.URLParam(r, "*")
+
+	// Validate and clean the path to prevent directory traversal
+	cleanPath, err := app.validateAssetPath(requestedPath)
+	if err != nil {
+		app.notFound(w, r)
+		return
+	}
+
+	// Build the full path to the attachment
+	attachmentsDir := filepath.Join(app.config.dataDir, "attachments")
+	fullPath := filepath.Join(attachmentsDir, cleanPath)
+
+	// Ensure the final path is still within the attachments directory
+	if !app.isPathSafe(attachmentsDir, fullPath) {
+		app.notFound(w, r)
+		return
+	}
+
+	// Check if file exists and is not a directory
+	fileInfo, err := os.Stat(fullPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			app.notFound(w, r)
+			return
+		}
+		app.serverError(w, r, err)
+		return
+	}
+
+	// Disable directory listing - only serve files
+	if fileInfo.IsDir() {
+		app.notFound(w, r)
+		return
+	}
+
+	// Set appropriate content type based on file extension
+	contentType := app.getContentType(cleanPath)
+	w.Header().Set("Content-Type", contentType)
+
+	// Set security headers
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+
+	// Serve the file
+	http.ServeFile(w, r, fullPath)
+}
+
 // validateAssetPath validates and cleans a requested asset path to prevent directory traversal
 func (app *application) validateAssetPath(requestedPath string) (string, error) {
 	// Remove any leading slashes

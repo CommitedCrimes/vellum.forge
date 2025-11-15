@@ -30,8 +30,11 @@ func (app *application) routes() http.Handler {
 	fileServer := http.FileServer(http.FS(assets.EmbeddedFiles))
 	mux.Handle("/static/*", fileServer)
 
-	// Theme assets
+	// Theme assets (css, js, images, etc from themes/{theme}/assets/)
 	mux.Handle("/themes/*", http.HandlerFunc(app.themeAssets))
+
+	// User attachment images (from data/attachments)
+	mux.Handle("/images/*", http.HandlerFunc(app.attachmentImages))
 
 	// Routes
 	mux.Get("/", app.home)
