@@ -151,6 +151,12 @@ a:hover {
     color: var(--color-link-hover);
 }
 
+a:focus-visible, a:focus {
+    outline: solid 1px var(--color-accent);
+    outline-offset: .2rem;
+    border-radius: 2px;
+}
+
 strong {
     font-weight: 600;
     color: var(--color-text-primary);
@@ -236,6 +242,11 @@ em {
     color: var(--color-text-primary);
 }
 
+.nav-links a:focus, .nav-links a:focus-visible {
+    color: var(--color-text-primary);
+}
+
+
 /* Theme toggle button */
 .theme-toggle {
     background: none;
@@ -253,6 +264,11 @@ em {
 .theme-toggle:hover {
     border-color: var(--color-border-hover);
     color: var(--color-text-primary);
+}
+
+.theme-toggle:focus, .theme-toggle:focus-visible {
+    outline: solid 1px var(--color-accent);
+    outline-offset: .2rem;
 }
 
 :root[data-theme="dark"] .sun-icon {
@@ -931,11 +947,17 @@ em {
     border: none;
 }
 
+.primary-button:focus, .primary-button:focus-visible {
+    outline: solid 1px var(--color-accent);
+    outline-offset: .2rem;
+}
+
 .primary-button:hover {
     background-color: var(--color-accent-hover);
     gap: 0.75rem;
     transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    color: var(--color-code-bg);
 }
 
 .primary-button svg {

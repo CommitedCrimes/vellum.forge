@@ -1,7 +1,10 @@
 <footer class="site-footer">
     <div class="footer-content">
         <div class="footer-text">
-            &copy; {{formatDate(now(), "2006")}} VellumForge
+            &copy; {{formatDate(now(), "2006")}}
+        </div>
+        <div class="footer-text">
+            powered by <a href="#">VellumForge</a>
         </div>
         <div class="footer-version">
             v{{Version}}
