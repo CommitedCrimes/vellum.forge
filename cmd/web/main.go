@@ -16,6 +16,7 @@ import (
 	"vellum.forge/internal/response"
 	"vellum.forge/internal/version"
 
+	"github.com/joho/godotenv"
 	"github.com/lmittmann/tint"
 )
 
@@ -58,6 +59,9 @@ type application struct {
 }
 
 func run(logger *slog.Logger) error {
+	// Load .env file if it exists (silently ignore if it doesn't)
+	_ = godotenv.Load()
+
 	var cfg config
 
 	cfg.baseURL = env.GetString("BASE_URL", "http://localhost:6886")

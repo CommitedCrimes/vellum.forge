@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -19,11 +20,21 @@ type JetRenderer struct {
 	views *jet.Set
 }
 
-// NewJetRenderer creates a new Jet template renderer
+// NewJetRenderer creates a new Jet template renderer with fallback support
 func NewJetRenderer(themeDir string) (*JetRenderer, error) {
-	// Create a new Jet set with the theme directory
+	// Extract the base themes directory and theme name
+	baseDir := filepath.Dir(themeDir)
+	defaultThemeDir := filepath.Join(baseDir, "default")
+
+	// Create a fallback loader that tries the current theme first, then default
+	loader := &fallbackLoader{
+		primaryDir:   themeDir,
+		fallbackDir:  defaultThemeDir,
+	}
+
+	// Create a new Jet set with the fallback loader
 	views := jet.NewSet(
-		jet.NewOSFileSystemLoader(themeDir),
+		loader,
 		jet.InDevelopmentMode(), // Enable for development
 	)
 
@@ -191,6 +202,48 @@ func (jr *JetRenderer) RenderPartial(w io.Writer, templatePath string, data any)
 	}
 
 	return tmpl.Execute(w, vars, nil)
+}
+
+// fallbackLoader implements jet.Loader with fallback support
+// It tries to load templates from the primary directory first,
+// then falls back to a default directory if not found
+type fallbackLoader struct {
+	primaryDir  string
+	fallbackDir string
+}
+
+func (l *fallbackLoader) Open(name string) (io.ReadCloser, error) {
+	// Try primary directory first
+	primaryPath := filepath.Join(l.primaryDir, name)
+	if file, err := os.Open(primaryPath); err == nil {
+		return file, nil
+	}
+
+	// Fallback to default directory
+	fallbackPath := filepath.Join(l.fallbackDir, name)
+	file, err := os.Open(fallbackPath)
+	if err != nil {
+		return nil, fmt.Errorf("template not found in primary (%s) or fallback (%s) directories: %w",
+			l.primaryDir, l.fallbackDir, err)
+	}
+
+	return file, nil
+}
+
+func (l *fallbackLoader) Exists(name string) bool {
+	// Check primary directory
+	primaryPath := filepath.Join(l.primaryDir, name)
+	if _, err := os.Stat(primaryPath); err == nil {
+		return true
+	}
+
+	// Check fallback directory
+	fallbackPath := filepath.Join(l.fallbackDir, name)
+	if _, err := os.Stat(fallbackPath); err == nil {
+		return true
+	}
+
+	return false
 }
 
 // embeddedJetLoader implements jet.Loader for embedded file systems

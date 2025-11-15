@@ -1,0 +1,25 @@
+{{extends "../layout.jet"}}
+
+{{block title()}}VellumForge{{end}}
+
+{{block meta()}}
+<meta name="page" content="home">
+<meta name="description" content="A modern, minimalist blog platform">
+{{end}}
+
+{{block main()}}
+<div class="home-container">
+    <div class="hero-section">
+        <h1 class="hero-title">VellumForge</h1>
+        <p class="hero-subtitle">A modern, minimalist blog platform</p>
+        <div class="hero-actions">
+            <a href="/blog" class="primary-button">
+                Read the Blog
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </a>
+        </div>
+    </div>
+</div>
+{{end}}

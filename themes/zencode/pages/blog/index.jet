@@ -1,0 +1,59 @@
+{{extends "../../layout.jet"}}
+
+{{block title()}}Blog{{end}}
+
+{{block meta()}}
+<meta name="page" content="blog/index">
+<meta name="description" content="Read our latest articles and insights">
+{{end}}
+
+{{block main()}}
+<div class="blog-container">
+    <header class="blog-header">
+        <h1 class="blog-title">Blog</h1>
+        <p class="blog-description">Thoughts, ideas, and insights</p>
+    </header>
+
+    <div class="blog-grid">
+        {{range BlogPosts}}
+        <article class="blog-card">
+            {{if .Frontmatter.Cover}}
+            <div class="card-cover">
+                <img src="{{.Frontmatter.Cover}}" alt="{{.Frontmatter.Title}}" loading="lazy">
+            </div>
+            {{end}}
+
+            <div class="card-content">
+                <div class="card-meta">
+                    <time datetime="{{formatDate(.Frontmatter.Date, "2006-01-02")}}">
+                        {{formatDate(.Frontmatter.Date, "Jan 2, 2006")}}
+                    </time>
+                    {{if .Frontmatter.Tags}}
+                    <div class="card-tags">
+                        {{range .Frontmatter.Tags}}
+                        <span class="tag">{{.}}</span>
+                        {{end}}
+                    </div>
+                    {{end}}
+                </div>
+
+                <h2 class="card-title">
+                    <a href="/blog/{{.Frontmatter.Slug}}">{{.Frontmatter.Title}}</a>
+                </h2>
+
+                {{if .Frontmatter.Description}}
+                <p class="card-description">{{.Frontmatter.Description}}</p>
+                {{end}}
+
+                <a href="/blog/{{.Frontmatter.Slug}}" class="card-link">
+                    Read article
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </a>
+            </div>
+        </article>
+        {{end}}
+    </div>
+</div>
+{{end}}

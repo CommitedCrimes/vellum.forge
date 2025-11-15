@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang='en' data-theme='dark'>
+    <head>
+        <meta charset='utf-8'>
+        <title>{{block title()}}Default Title{{end}}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        {{block meta()}}{{end}}
+
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+        <link rel='stylesheet' href='/static/css/code/nordic.css'>
+        <link rel='stylesheet' href='/themes/css/theme.css?version={{Version}}'>
+
+        <!-- Mermaid for diagrams -->
+        <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+        {{block head()}}{{end}}
+    </head>
+    <body>
+        <div class="site-wrapper">
+            <header class="site-header">
+                {{block header()}}
+                {{include "partials/nav.jet"}}
+                {{end}}
+            </header>
+            <main class="site-main">
+                {{block main()}}{{end}}
+            </main>
+            {{include "partials/footer.jet"}}
+        </div>
+
+        <!-- Initialize Mermaid -->
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                mermaid.initialize({
+                    startOnLoad: true,
+                    theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'default',
+                    themeVariables: {
+                        primaryColor: '#4B4646',
+                        primaryTextColor: '#F1ECEC',
+                        primaryBorderColor: '#656363',
+                        lineColor: '#B7B1B1',
+                        secondaryColor: '#211E1E',
+                        tertiaryColor: '#CFCECD'
+                    }
+                });
+            });
+        </script>
+
+        <!-- Theme toggle functionality -->
+        <script>
+            // Check for saved theme preference or default to 'dark'
+            const theme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+
+            function toggleTheme() {
+                const currentTheme = document.documentElement.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+                document.documentElement.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+
+                // Update mermaid theme
+                if (typeof mermaid !== 'undefined') {
+                    mermaid.initialize({
+                        startOnLoad: true,
+                        theme: newTheme === 'dark' ? 'dark' : 'default'
+                    });
+                }
+            }
+        </script>
+    </body>
+</html>

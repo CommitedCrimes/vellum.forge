@@ -1,0 +1,34 @@
+{{extends "../layout.jet"}}
+
+{{block title()}}{{Page.Frontmatter.Title}}{{end}}
+
+{{block meta()}}
+<meta name="description" content="{{Page.Frontmatter.Description}}">
+<meta name="keywords" content="{{range Page.Frontmatter.Tags}}{{.}}, {{end}}">
+<meta property="og:title" content="{{Page.Frontmatter.Title}}">
+<meta property="og:description" content="{{Page.Frontmatter.Description}}">
+{{if Page.Frontmatter.Cover}}<meta property="og:image" content="{{Page.Frontmatter.Cover}}">{{end}}
+{{end}}
+
+{{block main()}}
+<article class="page">
+    <div class="page-container">
+        <header class="page-header">
+            <h1 class="page-title">{{Page.Frontmatter.Title}}</h1>
+            {{if Page.Frontmatter.Description}}
+            <p class="page-description">{{Page.Frontmatter.Description}}</p>
+            {{end}}
+        </header>
+
+        {{if Page.Frontmatter.Cover}}
+        <div class="page-cover">
+            <img src="{{Page.Frontmatter.Cover}}" alt="{{Page.Frontmatter.Title}}">
+        </div>
+        {{end}}
+
+        <div class="page-content">
+            {{Page.HTML|raw}}
+        </div>
+    </div>
+</article>
+{{end}}
